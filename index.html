@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Investment Desk — v01.01</title>
+<title>Investment Desk — v01.02</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
@@ -300,6 +300,34 @@ tr:hover td { background: var(--bg-hover); color: var(--text); }
   font-family: var(--font-mono); font-size: 11px;
 }
 
+/* ── LOGIN SCREEN ────────────────────────────────────────────── */
+.login-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+}
+.login-box {
+  width: 340px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  padding: 36px 32px;
+}
+.login-box h1 {
+  font-family: var(--font-serif);
+  font-size: 20px; font-weight: 700;
+  margin-bottom: 4px;
+}
+.login-box .login-sub {
+  font-size: 12px; color: var(--text-dim);
+  margin-bottom: 28px;
+}
+.login-error {
+  font-size: 12px; color: var(--red);
+  font-family: var(--font-mono);
+  margin-bottom: 12px; min-height: 16px;
+}
+
 /* ── CONFIG SCREEN ───────────────────────────────────────────── */
 .config-screen {
   max-width: 560px; margin: 40px auto;
@@ -348,8 +376,9 @@ const {
 } = window.Recharts;
 
 // ── CONFIG ──────────────────────────────────────────────────────
-const GAS_URL = localStorage.getItem('inv_gas_url') || '';
-const VERSION = 'v01.01';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxtEcoH6YblVCsVlFKvpfWxeyqJJ8nHwAPhpdl1bvdkzTQ3PDnsC9GXZRwtg21VZnzQdQ/exec';
+const VERSION = 'v01.02';
+const TOKEN_KEY = 'inv_token';
 
 // ── COLORS ──────────────────────────────────────────────────────
 const C = {
@@ -390,12 +419,13 @@ const fmt = {
 
 // ── API ──────────────────────────────────────────────────────────
 async function callAPI(action, params = {}) {
-  const url = localStorage.getItem('inv_gas_url');
-  if (!url) throw new Error('GAS URL not configured');
-  const qp = new URLSearchParams({ action, ...params });
-  const res = await fetch(`${url}?${qp}`);
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) throw new Error('Not authenticated');
+  const qp = new URLSearchParams({ action, token, ...params });
+  const res = await fetch(`${GAS_URL}?${qp}`);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
+  if (data.error === 'Unauthorized') throw new Error('Unauthorized');
   if (data.error) throw new Error(data.error);
   return data;
 }
@@ -475,29 +505,29 @@ function useData(action, params={}) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const url = localStorage.getItem('inv_gas_url');
+  const token = localStorage.getItem(TOKEN_KEY);
 
   useEffect(() => {
     setLoading(true);
-    if (!url) {
+    if (!token) {
       setTimeout(() => { setData(getMockData(action)); setLoading(false); }, 600);
       return;
     }
     callAPI(action, params)
       .then(d => { setData(d); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });
-  }, [action, url, JSON.stringify(params)]);
+  }, [action, token, JSON.stringify(params)]);
 
   const refresh = useCallback(() => {
     setLoading(true); setError(null);
-    if (!url) {
+    if (!token) {
       setTimeout(() => { setData(getMockData(action)); setLoading(false); }, 400);
       return;
     }
     callAPI(action, params)
       .then(d => { setData(d); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });
-  }, [action, url]);
+  }, [action, token]);
 
   return { data, loading, error, refresh };
 }
@@ -552,7 +582,7 @@ function DashboardScreen() {
   if (error) return <ErrorCard msg={error} />;
   if (!data) return null;
 
-  const isDemo = !localStorage.getItem('inv_gas_url');
+  const isDemo = !localStorage.getItem(TOKEN_KEY);
 
   return (
     <div className="fade-up">
@@ -942,76 +972,125 @@ function PerformanceScreen() {
   );
 }
 
-// ── CONFIG SCREEN ─────────────────────────────────────────────────
-function ConfigScreen({ onSave }) {
-  const [url, setUrl] = useState(localStorage.getItem('inv_gas_url') || '');
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null);
+// ── LOGIN SCREEN ──────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const [password, setPassword] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState('');
 
-  const testConn = async () => {
-    setTesting(true); setTestResult(null);
+  const attempt = async () => {
+    if (!password) return;
+    setChecking(true); setError('');
     try {
-      const res = await fetch(url + '?action=ping');
+      const qp = new URLSearchParams({ action: 'ping', token: password });
+      const res = await fetch(`${GAS_URL}?${qp}`);
       const data = await res.json();
-      setTestResult({ ok: true, msg: 'Connected — ' + data.version });
+      if (data.error === 'Unauthorized') {
+        setError('Incorrect password');
+      } else if (data.status === 'ok') {
+        localStorage.setItem(TOKEN_KEY, password);
+        onLogin();
+      } else {
+        setError('Unexpected response — check GAS deployment');
+      }
     } catch (e) {
-      setTestResult({ ok: false, msg: e.message });
+      setError('Connection failed: ' + e.message);
     }
-    setTesting(false);
+    setChecking(false);
   };
 
-  const save = () => {
-    localStorage.setItem('inv_gas_url', url);
-    onSave && onSave();
+  const handleKey = (e) => { if (e.key === 'Enter') attempt(); };
+
+  return (
+    <div className="login-overlay">
+      <div className="login-box fade-up">
+        <h1>Investment Desk</h1>
+        <div className="login-sub">{VERSION} · Enter your access password</div>
+        <input
+          className="form-input"
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={e => { setPassword(e.target.value); setError(''); }}
+          onKeyDown={handleKey}
+          autoFocus
+          style={{marginBottom:12, fontSize:15, letterSpacing:'0.08em'}}
+        />
+        <div className="login-error">{error}</div>
+        <button className="btn primary" style={{width:'100%',justifyContent:'center',padding:'9px'}}
+          onClick={attempt} disabled={!password || checking}>
+          {checking ? 'Checking…' : 'Unlock'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── CONFIG SCREEN ─────────────────────────────────────────────────
+function ConfigScreen({ onSave, onLogout }) {
+  const [newPass, setNewPass] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const changePassword = async () => {
+    if (!newPass) return;
+    setChecking(true); setResult(null);
+    try {
+      const qp = new URLSearchParams({ action: 'ping', token: newPass });
+      const res = await fetch(`${GAS_URL}?${qp}`);
+      const data = await res.json();
+      if (data.error === 'Unauthorized') {
+        setResult({ ok: false, msg: 'Incorrect password — not saved' });
+      } else if (data.status === 'ok') {
+        localStorage.setItem(TOKEN_KEY, newPass);
+        setResult({ ok: true, msg: 'Password updated — ' + data.version });
+        setNewPass('');
+      } else {
+        setResult({ ok: false, msg: 'Unexpected response' });
+      }
+    } catch (e) {
+      setResult({ ok: false, msg: 'Connection failed: ' + e.message });
+    }
+    setChecking(false);
   };
 
   return (
     <div className="config-screen card fade-up">
-      <h2>Connect Spreadsheet</h2>
-      <p>Enter the deployed Google Apps Script URL for your Income Plan spreadsheet. The app will use this to read portfolio data, tax information, and performance metrics.</p>
+      <h2>Settings</h2>
+      <p>Manage your access credentials. The password is stored locally in your browser.</p>
 
       <div className="form-group">
-        <label className="form-label">GAS Web App URL</label>
-        <input className="form-input" value={url}
-          onChange={e => setUrl(e.target.value)}
-          placeholder="https://script.google.com/macros/s/AKfy.../exec" />
-        <div className="form-hint">Deploy your GAS as a web app (anyone with link, as me) and paste the URL above.</div>
+        <label className="form-label">Change Password</label>
+        <input className="form-input" type="password"
+          value={newPass} onChange={e => setNewPass(e.target.value)}
+          placeholder="Enter new password to verify &amp; save"
+          onKeyDown={e => e.key === 'Enter' && changePassword()} />
+        <div className="form-hint">Will be verified against GAS before saving.</div>
       </div>
 
-      {testResult && (
+      {result && (
         <div style={{padding:'10px 14px',borderRadius:'var(--r)',marginBottom:16,
-          background: testResult.ok ? 'rgba(61,214,140,0.1)' : 'rgba(255,94,126,0.1)',
-          border: `1px solid ${testResult.ok ? C.green : C.red}`,
-          color: testResult.ok ? C.green : C.red, fontSize:12,
+          background: result.ok ? 'rgba(61,214,140,0.1)' : 'rgba(255,94,126,0.1)',
+          border: `1px solid ${result.ok ? C.green : C.red}`,
+          color: result.ok ? C.green : C.red, fontSize:12,
           fontFamily:'var(--font-mono)'}}>
-          {testResult.ok ? '✓ ' : '✗ '}{testResult.msg}
+          {result.ok ? '✓ ' : '✗ '}{result.msg}
         </div>
       )}
 
-      <div style={{display:'flex',gap:10}}>
-        <button className="btn" onClick={testConn} disabled={!url || testing}>
-          {testing ? 'Testing…' : 'Test Connection'}
+      <div style={{display:'flex',gap:10,marginBottom:32}}>
+        <button className="btn primary" onClick={changePassword} disabled={!newPass || checking}>
+          {checking ? 'Verifying…' : 'Update Password'}
         </button>
-        <button className="btn primary" onClick={save} disabled={!url}>
-          Save & Connect
-        </button>
-        {localStorage.getItem('inv_gas_url') && (
-          <button className="btn" onClick={() => { localStorage.removeItem('inv_gas_url'); onSave && onSave(); }}>
-            Use Demo Data
-          </button>
-        )}
       </div>
 
-      <div style={{marginTop:32, padding:'16px',background:'var(--bg-raised)',borderRadius:'var(--r)',border:'1px solid var(--border)'}}>
-        <div className="sub-title" style={{marginBottom:8}}>Setup Instructions</div>
-        <div style={{color:'var(--text-mid)',fontSize:12,lineHeight:1.7}}>
-          <div>1. Open the Income Plan spreadsheet in Google Drive</div>
-          <div>2. Go to <span className="mono accent">Extensions → Apps Script</span></div>
-          <div>3. Create a new file, paste the backend code from <span className="mono gold">investment-gas.js</span></div>
-          <div>4. Click <span className="mono accent">Deploy → New Deployment → Web App</span></div>
-          <div>5. Set "Execute as: Me" and "Who has access: Anyone"</div>
-          <div>6. Copy the deployment URL and paste above</div>
-        </div>
+      <div style={{paddingTop:20,borderTop:'1px solid var(--border)'}}>
+        <div className="form-label" style={{marginBottom:12}}>Session</div>
+        <button className="btn" style={{color:'var(--red)',borderColor:'rgba(255,94,126,0.3)'}}
+          onClick={onLogout}>
+          Lock App
+        </button>
+        <div className="form-hint" style={{marginTop:8}}>Clears saved password from this browser. You'll need to enter it again on next visit.</div>
       </div>
     </div>
   );
@@ -1331,9 +1410,13 @@ function HarvestScreen() {
 
 function App() {
   const [screen, setScreen] = useState('dashboard');
+  const [authed, setAuthed] = useState(!!localStorage.getItem(TOKEN_KEY));
   const [_, forceUpdate] = useState(0);
-  const hasUrl = !!localStorage.getItem('inv_gas_url');
-  const isDemo = !hasUrl;
+  const isDemo = !authed;
+
+  if (!authed) {
+    return <LoginScreen onLogin={() => setAuthed(true)} />;
+  }
 
   const sections = [...new Set(SCREENS.map(s => s.section))];
 
@@ -1345,7 +1428,7 @@ function App() {
       case 'performance': return <PerformanceScreen />;
       case 'tax':         return <TaxPlanningScreen />;
       case 'harvest':     return <HarvestScreen />;
-      case 'settings':    return <ConfigScreen onSave={() => { setScreen('dashboard'); forceUpdate(n=>n+1); }} />;
+      case 'settings':    return <ConfigScreen onSave={() => { setScreen('dashboard'); forceUpdate(n=>n+1); }} onLogout={() => { localStorage.removeItem(TOKEN_KEY); setAuthed(false); }} />;
       default:            return <DashboardScreen />;
     }
   };
