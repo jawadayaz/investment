@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Investment Desk — v01.01</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.1.16/Recharts.js"></script>
+<style>
+/* ── DESIGN SYSTEM ─────────────────────────────────────────── */
+:root {
+  --bg:        #0c0d0f;
+  --bg-raised: #111318;
+  --bg-card:   #161a21;
+  --bg-hover:  #1d2230;
+  --border:    #222840;
+  --border-hi: #2e3860;
+  --text:      #e4e8f0;
+  --text-dim:  #6b7490;
+  --text-mid:  #9ba4be;
+  --accent:    #5e8bff;
+  --accent2:   #7c6fff;
+  --green:     #3dd68c;
+  --red:       #ff5e7e;
+  --gold:      #f0c060;
+  --teal:      #4ecdc4;
+  --font-mono: 'DM Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+  --font-serif:'Libre Baskerville', Georgia, serif;
+  --r:         6px;
+  --r2:        10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 13px; line-height: 1.5; }
+body { display: flex; flex-direction: column; }
+
+/* ── SCROLLBAR ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 4px; }
+
+/* ── LAYOUT ────────────────────────────────────────────────── */
+.app { display: flex; height: 100vh; overflow: hidden; }
+
+.sidebar {
+  width: 220px; min-width: 220px;
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-logo {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo h1 {
+  font-family: var(--font-serif);
+  font-size: 15px; font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.sidebar-logo .version {
+  font-family: var(--font-mono);
+  font-size: 10px; color: var(--accent);
+  margin-top: 2px;
+}
+
+.nav { flex: 1; overflow-y: auto; padding: 10px 8px; }
+.nav-section-label {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-dim);
+  padding: 10px 10px 4px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: var(--r);
+  cursor: pointer; transition: all 0.15s;
+  color: var(--text-mid); font-size: 13px; font-weight: 400;
+  user-select: none;
+}
+.nav-item:hover { background: var(--bg-hover); color: var(--text); }
+.nav-item.active { background: rgba(94,139,255,0.12); color: var(--accent); }
+.nav-item svg { flex-shrink: 0; opacity: 0.8; }
+
+.sidebar-footer {
+  padding: 12px 14px; border-top: 1px solid var(--border);
+}
+.sidebar-footer .usd-rate {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+}
+.sidebar-footer .usd-rate span { color: var(--gold); }
+
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.topbar {
+  height: 50px; min-height: 50px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+}
+.topbar h2 { font-family: var(--font-serif); font-size: 15px; font-weight: 700; }
+.topbar-meta { display: flex; align-items: center; gap: 16px; }
+.topbar-ts { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: var(--r);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border-hi);
+  background: var(--bg-card); color: var(--text-mid);
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--bg-hover); color: var(--text); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.primary:hover { opacity: 0.85; }
+
+.content { flex: 1; overflow-y: auto; padding: 24px; }
+
+/* ── LOADING / ERROR ────────────────────────────────────────── */
+.loading-screen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100%;
+  gap: 16px; color: var(--text-dim);
+}
+.spinner {
+  width: 28px; height: 28px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── GRID / CARDS ────────────────────────────────────────────── */
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-auto { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  padding: 18px 20px;
+}
+.card-sm { padding: 14px 16px; }
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.card-title {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.card-action { font-size: 11px; color: var(--accent); cursor: pointer; }
+.card-action:hover { text-decoration: underline; }
+
+/* ── STAT CARDS ──────────────────────────────────────────────── */
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 22px; font-weight: 500; letter-spacing: -0.02em;
+  color: var(--text); margin-bottom: 2px;
+}
+.stat-label { font-size: 11px; color: var(--text-dim); }
+.stat-delta {
+  font-family: var(--font-mono); font-size: 11px; margin-top: 6px;
+}
+.stat-delta.pos { color: var(--green); }
+.stat-delta.neg { color: var(--red); }
+.stat-delta.neu { color: var(--text-dim); }
+
+/* ── TABLES ──────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; margin: 0 -4px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left; padding: 6px 10px;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td {
+  padding: 7px 10px; border-bottom: 1px solid rgba(34,40,64,0.5);
+  color: var(--text-mid); white-space: nowrap;
+}
+tr:hover td { background: var(--bg-hover); color: var(--text); }
+.mono { font-family: var(--font-mono); }
+.right { text-align: right; }
+.center { text-align: center; }
+
+/* ── VALUE COLORS ────────────────────────────────────────────── */
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+.accent { color: var(--accent); }
+.gold { color: var(--gold); }
+.teal { color: var(--teal); }
+.dim { color: var(--text-dim); }
+
+/* ── BADGES ──────────────────────────────────────────────────── */
+.badge {
+  display: inline-block; padding: 2px 7px;
+  border-radius: 4px; font-size: 10px; font-weight: 500;
+}
+.badge-blue  { background: rgba(94,139,255,0.15);  color: var(--accent); }
+.badge-green { background: rgba(61,214,140,0.12);  color: var(--green); }
+.badge-red   { background: rgba(255,94,126,0.12);  color: var(--red); }
+.badge-gold  { background: rgba(240,192,96,0.12);  color: var(--gold); }
+.badge-dim   { background: rgba(107,116,144,0.12); color: var(--text-dim); }
+
+/* ── PROGRESS BARS ───────────────────────────────────────────── */
+.progress-bar {
+  height: 4px; background: var(--border);
+  border-radius: 2px; overflow: hidden; margin-top: 8px;
+}
+.progress-fill {
+  height: 100%; border-radius: 2px;
+  background: var(--accent); transition: width 0.4s ease;
+}
+
+/* ── ALLOCATION DONUT ────────────────────────────────────────── */
+.donut-wrap { display: flex; align-items: center; gap: 24px; }
+.donut-legend { display: flex; flex-direction: column; gap: 10px; }
+.donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.donut-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── ACCOUNT ROWS ────────────────────────────────────────────── */
+.acct-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 0; border-bottom: 1px solid var(--border);
+}
+.acct-row:last-child { border-bottom: none; }
+.acct-name { font-weight: 500; color: var(--text); }
+.acct-meta { font-family: var(--font-mono); font-size: 11px; }
+
+/* ── FILTER BAR ──────────────────────────────────────────────── */
+.filter-bar {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 18px; flex-wrap: wrap;
+}
+.filter-input {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text); border-radius: var(--r);
+  padding: 6px 12px; font-size: 12px; font-family: var(--font-body);
+  outline: none; min-width: 180px;
+}
+.filter-input:focus { border-color: var(--accent); }
+.filter-select {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-mid); border-radius: var(--r);
+  padding: 6px 10px; font-size: 12px; font-family: var(--font-body);
+  outline: none; cursor: pointer;
+}
+.filter-pill {
+  padding: 4px 10px; border-radius: 20px; font-size: 11px;
+  cursor: pointer; border: 1px solid var(--border);
+  color: var(--text-dim); transition: all 0.12s;
+}
+.filter-pill:hover { border-color: var(--accent); color: var(--accent); }
+.filter-pill.active { background: rgba(94,139,255,0.15); border-color: var(--accent); color: var(--accent); }
+
+/* ── SECTION ────────────────────────────────────────────────── */
+.section { margin-bottom: 28px; }
+.section-title {
+  font-family: var(--font-serif); font-size: 15px;
+  font-weight: 700; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.sub-title {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px;
+}
+
+/* ── TAB NAV ─────────────────────────────────────────────────── */
+.tabs { display: flex; gap: 2px; margin-bottom: 20px; }
+.tab {
+  padding: 7px 16px; border-radius: var(--r);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  color: var(--text-dim); transition: all 0.12s;
+  border: 1px solid transparent;
+}
+.tab:hover { color: var(--text); }
+.tab.active {
+  background: var(--bg-card); border-color: var(--border);
+  color: var(--text); font-weight: 600;
+}
+
+/* ── TOOLTIP ─────────────────────────────────────────────────── */
+.recharts-tooltip-wrapper .custom-tooltip {
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 14px;
+  font-family: var(--font-mono); font-size: 11px;
+}
+
+/* ── CONFIG SCREEN ───────────────────────────────────────────── */
+.config-screen {
+  max-width: 560px; margin: 40px auto;
+}
+.config-screen h2 { font-family: var(--font-serif); font-size: 20px; margin-bottom: 8px; }
+.config-screen p { color: var(--text-mid); margin-bottom: 24px; }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 6px; font-weight: 600; letter-spacing: 0.05em; }
+.form-input {
+  width: 100%; background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text); border-radius: var(--r); padding: 9px 14px;
+  font-size: 13px; font-family: var(--font-mono); outline: none;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-hint { font-size: 11px; color: var(--text-dim); margin-top: 5px; }
+
+/* ── ANIMATIONS ──────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.3s ease forwards; }
+.fade-up-d1 { animation-delay: 0.05s; opacity: 0; }
+.fade-up-d2 { animation-delay: 0.1s;  opacity: 0; }
+.fade-up-d3 { animation-delay: 0.15s; opacity: 0; }
+
+/* ── RESPONSIVE ──────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .sidebar { width: 52px; min-width: 52px; }
+  .sidebar .nav-item span, .sidebar-logo h1,
+  .sidebar-logo .version, .sidebar-footer .usd-rate { display: none; }
+  .nav-item { padding: 10px; justify-content: center; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
+const { 
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, LineChart, Line,
+  BarChart, Bar, Legend
+} = window.Recharts;
+
+// ── CONFIG ──────────────────────────────────────────────────────
+const GAS_URL = localStorage.getItem('inv_gas_url') || '';
+const VERSION = 'v01.01';
+
+// ── COLORS ──────────────────────────────────────────────────────
+const C = {
+  accent: '#5e8bff', accent2: '#7c6fff',
+  green: '#3dd68c', red: '#ff5e7e',
+  gold: '#f0c060', teal: '#4ecdc4',
+  purple: '#b06fff', orange: '#ff9340',
+};
+const PALETTE = [C.accent, C.teal, C.gold, C.accent2, C.green, C.purple, C.orange, C.red];
+
+// ── FORMATTERS ──────────────────────────────────────────────────
+const fmt = {
+  usd: (v, compact=false) => {
+    if (v == null || isNaN(v)) return '—';
+    const abs = Math.abs(v);
+    if (compact) {
+      if (abs >= 1e9) return (v<0?'-':'') + '$' + (abs/1e9).toFixed(1) + 'B';
+      if (abs >= 1e6) return (v<0?'-':'') + '$' + (abs/1e6).toFixed(1) + 'M';
+      if (abs >= 1e3) return (v<0?'-':'') + '$' + (abs/1e3).toFixed(0) + 'K';
+    }
+    return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v);
+  },
+  inr: (v, compact=false) => {
+    if (v == null || isNaN(v)) return '—';
+    const abs = Math.abs(v);
+    if (compact) {
+      if (abs >= 1e7) return (v<0?'-':'') + '₹' + (abs/1e7).toFixed(1) + 'Cr';
+      if (abs >= 1e5) return (v<0?'-':'') + '₹' + (abs/1e5).toFixed(1) + 'L';
+    }
+    return '₹' + new Intl.NumberFormat('en-IN',{maximumFractionDigits:0}).format(v);
+  },
+  pct: (v, dec=1) => v == null || isNaN(v) ? '—' : (v*100).toFixed(dec) + '%',
+  pctRaw: (v, dec=1) => v == null || isNaN(v) ? '—' : v.toFixed(dec) + '%',
+  num: (v) => v == null || isNaN(v) ? '—' : new Intl.NumberFormat('en-US').format(Math.round(v)),
+  delta: (v) => v >= 0 ? '+' + (v*100).toFixed(1) + '%' : (v*100).toFixed(1) + '%',
+  sign: (v) => v == null || isNaN(v) ? '' : v >= 0 ? 'pos' : 'neg',
+};
+
+// ── API ──────────────────────────────────────────────────────────
+async function callAPI(action, params = {}) {
+  const url = localStorage.getItem('inv_gas_url');
+  if (!url) throw new Error('GAS URL not configured');
+  const qp = new URLSearchParams({ action, ...params });
+  const res = await fetch(`${url}?${qp}`);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+// Mock data for demo when no GAS URL configured
+function getMockData(action) {
+  if (action === 'getGlobalDashboard') return {
+    usdRate: 86.5,
+    totalNLV: 14800000,
+    usNLV: 9200000,
+    inNLV: 3800000,
+    reNLV: 1800000,
+    allocation: [
+      { label: 'US Equities', value: 9200000, pct: 0.622 },
+      { label: 'India Assets', value: 3800000, pct: 0.257 },
+      { label: 'Real Estate', value: 1800000, pct: 0.122 },
+    ],
+    usIncome: 185000,
+    inIncome: 42000,
+    totalIncome: 227000,
+    embeddedGain: 6800000,
+    embeddedTax: -1360000,
+    ytdCAGR: 0.142,
+    inceptionCAGR: 0.183,
+    accounts: [
+      { name: 'Etrade', nlv: 3200000, income: 42000, embeddedGain: 2800000, ltcgTax: -560000 },
+      { name: 'Trust', nlv: 2800000, income: 38000, embeddedGain: 2100000, ltcgTax: -420000 },
+      { name: 'Sakina', nlv: 1400000, income: 52000, embeddedGain: 890000, ltcgTax: -178000 },
+      { name: 'Aliza', nlv: 1200000, income: 34000, embeddedGain: 750000, ltcgTax: -150000 },
+      { name: 'Chhaya', nlv: 600000, income: 19000, embeddedGain: 260000, ltcgTax: -52000 },
+    ],
+    ts: new Date().toISOString()
+  };
+  if (action === 'getUSPortfolio') return {
+    positions: [
+      { objective:'I&G', account:'Etrade', name:'Alphabet Inc C', symbol:'goog', sector:'Digital Ad', allocation:'Growth - Tech', cmp:298, mktValue:1254918, qty:4200, buyPrice:302.5, buyDate:'2011-03-18', costBasis:63525, gainLoss:1191393, cagr:0.22, taxType:'LT', holdingPeriodDays:5484 },
+      { objective:'Growth', account:'Etrade', name:'Advanced Micro Devices', symbol:'amd', sector:'Cloud & AI Infra', allocation:'Growth - Tech', cmp:201, mktValue:8274663, qty:41100, buyPrice:2.96, buyDate:'2015-03-09', costBasis:121656, gainLoss:8153007, cagr:0.465, taxType:'LT', holdingPeriodDays:4032 },
+      { objective:'I&G', account:'Trust', name:'Apple Inc', symbol:'aapl', sector:'Consumer Tech', allocation:'Growth - Tech', cmp:247, mktValue:1985904, qty:8008, buyPrice:11.8, buyDate:'2011-03-18', costBasis:94695, gainLoss:1891209, cagr:0.225, taxType:'LT', holdingPeriodDays:5484 },
+      { objective:'I&G', account:'Trust', name:'Marathon Petroleum', symbol:'mpc', sector:'Energy', allocation:'Energy & Commodities', cmp:232, mktValue:1162650, qty:5000, buyPrice:16.55, buyDate:'2011-10-25', costBasis:82750, gainLoss:1079900, cagr:0.201, taxType:'LT', holdingPeriodDays:5263 },
+      { objective:'I&G', account:'Etrade', name:'Alphabet Inc A', symbol:'googl', sector:'Digital Ad', allocation:'Growth - Tech', cmp:301, mktValue:1505000, qty:5000, buyPrice:302.5, buyDate:'2011-03-18', costBasis:75625, gainLoss:1429375, cagr:0.220, taxType:'LT', holdingPeriodDays:5484 },
+      { objective:'I&G', account:'Sakina', name:'Fast Retailing ADR', symbol:'frcoy', sector:'Japan Diversified', allocation:'Intl Growth', cmp:38.6, mktValue:231600, qty:6000, buyPrice:10.5, buyDate:'2016-07-19', costBasis:63000, gainLoss:168600, cagr:0.144, taxType:'LT', holdingPeriodDays:3534 },
+      { objective:'Income', account:'Aliza', name:'Annaly Capital Mgmt', symbol:'nly', sector:'MBS', allocation:'MBS & HY', cmp:20.79, mktValue:25987, qty:1250, buyPrice:27, buyDate:'2020-03-16', costBasis:33750, gainLoss:-7763, cagr:-0.042, taxType:'LT', holdingPeriodDays:2198 },
+      { objective:'Income', account:'Trust', name:'MPLX LP', symbol:'mplx', sector:'Energy', allocation:'Energy & Commodities', cmp:57.99, mktValue:289950, qty:5000, buyPrice:20.1, buyDate:'2015-06-01', costBasis:100500, gainLoss:189450, cagr:0.12, taxType:'LT', holdingPeriodDays:3900 },
+      { objective:'Growth', account:'Aliza', name:'Walmart Inc', symbol:'wmt', sector:'Retail', allocation:'US Value & Cyclicals', cmp:119, mktValue:404668, qty:3400, buyPrice:50, buyDate:'2019-01-01', costBasis:170000, gainLoss:234668, cagr:0.148, taxType:'LT', holdingPeriodDays:2636 },
+      { objective:'Spec', account:'Chhaya', name:'Robinhood Markets', symbol:'hood', sector:'FinTech', allocation:'Growth - Non-tech', cmp:70.89, mktValue:638010, qty:9000, buyPrice:14.2, buyDate:'2021-08-01', costBasis:127800, gainLoss:510210, cagr:0.43, taxType:'LT', holdingPeriodDays:1695 },
+    ]
+  };
+  if (action === 'getPerformanceData') return {
+    portfolioCAGR: 0.183,
+    qqqCAGR: 0.152,
+    ytdGain: 1240000,
+    history: [
+      { date:'2015-12-31', totalUSD:1625256, qqq:65.13 },
+      { date:'2016-12-31', totalUSD:2464777, qqq:87.39 },
+      { date:'2017-12-31', totalUSD:3387196, qqq:105.02 },
+      { date:'2018-12-31', totalUSD:3217004, qqq:114.3 },
+      { date:'2019-12-31', totalUSD:4199000, qqq:119.88 },
+      { date:'2020-12-31', totalUSD:4647078, qqq:156.73 },
+      { date:'2021-12-31', totalUSD:7699091, qqq:213.79 },
+      { date:'2022-12-31', totalUSD:9000000, qqq:152.97 },
+      { date:'2023-12-31', totalUSD:15423747, qqq:313.74 },
+      { date:'2024-12-31', totalUSD:17800000, qqq:520.0 },
+    ],
+    annualNLV: [
+      { year:'2015', nlv:1625256 }, { year:'2016', nlv:2464777 },
+      { year:'2017', nlv:3387196 }, { year:'2018', nlv:3217004 },
+      { year:'2019', nlv:4199000 }, { year:'2020', nlv:4647078 },
+      { year:'2021', nlv:7699091 }, { year:'2022', nlv:9000000 },
+      { year:'2023', nlv:15423747 }, { year:'2024', nlv:17800000 },
+    ]
+  };
+  return {};
+}
+
+// ── HOOKS ────────────────────────────────────────────────────────
+function useData(action, params={}) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const url = localStorage.getItem('inv_gas_url');
+
+  useEffect(() => {
+    setLoading(true);
+    if (!url) {
+      setTimeout(() => { setData(getMockData(action)); setLoading(false); }, 600);
+      return;
+    }
+    callAPI(action, params)
+      .then(d => { setData(d); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, [action, url, JSON.stringify(params)]);
+
+  const refresh = useCallback(() => {
+    setLoading(true); setError(null);
+    if (!url) {
+      setTimeout(() => { setData(getMockData(action)); setLoading(false); }, 400);
+      return;
+    }
+    callAPI(action, params)
+      .then(d => { setData(d); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, [action, url]);
+
+  return { data, loading, error, refresh };
+}
+
+// ── SVG ICONS ────────────────────────────────────────────────────
+const Icon = ({ name, size=15 }) => {
+  const icons = {
+    dashboard: <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>,
+    portfolio: <><path d="M2 7h20M2 12h20M2 17h20"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="17" r="2"/></>,
+    chart: <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></>,
+    tax: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>,
+    global: <><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>,
+    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
+    refresh: <><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></>,
+    india: <><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></>,
+    harvest: <><path d="M12 22V12"/><path d="M17 12l-5-5-5 5"/><rect x="3" y="18" width="18" height="4" rx="1"/></>,
+    performance: <><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      {icons[name] || null}
+    </svg>
+  );
+};
+
+// ── CUSTOM TOOLTIP ────────────────────────────────────────────────
+const CustomTooltip = ({ active, payload, label, format='usd' }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{background:'#1d2230',border:'1px solid #222840',borderRadius:6,padding:'10px 14px',fontFamily:"'DM Mono',monospace",fontSize:11}}>
+      <div style={{color:'#9ba4be',marginBottom:6}}>{label}</div>
+      {payload.map((p,i) => (
+        <div key={i} style={{color:p.color||'#e4e8f0',display:'flex',gap:10,justifyContent:'space-between'}}>
+          <span>{p.name}</span>
+          <span>{format==='usd' ? fmt.usd(p.value,true) : fmt.pct(p.value/100)}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ════════════════════════════════════════════════════════════════
+// SCREENS
+// ════════════════════════════════════════════════════════════════
+
+// ── GLOBAL DASHBOARD ─────────────────────────────────────────────
+function DashboardScreen() {
+  const { data, loading, error, refresh } = useData('getGlobalDashboard');
+
+  if (loading) return <LoadingCard />;
+  if (error) return <ErrorCard msg={error} />;
+  if (!data) return null;
+
+  const isDemo = !localStorage.getItem('inv_gas_url');
+
+  return (
+    <div className="fade-up">
+      {isDemo && <DemoBanner />}
+      
+      {/* KPI Row */}
+      <div className="grid grid-4 section fade-up-d1 fade-up">
+        <KPICard
+          label="Total Portfolio (USD)"
+          value={fmt.usd(data.totalNLV, true)}
+          delta={fmt.delta(data.ytdCAGR) + ' YTD'}
+          deltaClass={fmt.sign(data.ytdCAGR)}
+          color={C.accent}
+        />
+        <KPICard
+          label="US Equities"
+          value={fmt.usd(data.usNLV, true)}
+          delta={fmt.pct(data.usNLV / data.totalNLV) + ' of total'}
+          deltaClass="neu"
+          color={C.teal}
+        />
+        <KPICard
+          label="India Assets"
+          value={fmt.usd(data.inNLV, true)}
+          delta={'₹' + fmt.num(Math.round(data.inNLV * data.usdRate))}
+          deltaClass="neu"
+          color={C.gold}
+        />
+        <KPICard
+          label="Real Estate"
+          value={fmt.usd(data.reNLV, true)}
+          delta={fmt.pct(data.reNLV / data.totalNLV) + ' of total'}
+          deltaClass="neu"
+          color={C.accent2}
+        />
+      </div>
+
+      <div className="grid grid-2 section fade-up-d2 fade-up" style={{gridTemplateColumns:'2fr 1fr'}}>
+        {/* Allocation Chart */}
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Asset Allocation</span>
+            <span className="dim" style={{fontSize:10,fontFamily:'var(--font-mono)'}}>USD {fmt.usd(data.totalNLV, true)}</span>
+          </div>
+          <AllocationChart data={data.allocation} />
+        </div>
+
+        {/* Income Summary */}
+        <div className="card">
+          <div className="card-header"><span className="card-title">Annual Income</span></div>
+          <div className="stat-value" style={{color:C.green}}>{fmt.usd(data.totalIncome, true)}</div>
+          <div className="stat-label" style={{marginBottom:16}}>Post-tax estimated</div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            <IncomeRow label="US Dividends & Interest" value={data.usIncome} color={C.accent} />
+            <IncomeRow label="India Dividends" value={data.inIncome} color={C.gold} />
+          </div>
+          <div style={{marginTop:20,paddingTop:16,borderTop:'1px solid var(--border)'}}>
+            <div className="card-title" style={{marginBottom:10}}>Embedded Gains</div>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
+              <span className="dim">Unrealized Gain</span>
+              <span className="mono pos">{fmt.usd(data.embeddedGain, true)}</span>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginTop:6}}>
+              <span className="dim">LTCG Tax Liability</span>
+              <span className="mono neg">{fmt.usd(data.embeddedTax, true)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Performance Banner */}
+      <div className="grid grid-2 section fade-up-d3 fade-up">
+        <div className="card">
+          <div className="card-header"><span className="card-title">Performance</span></div>
+          <div style={{display:'flex',gap:32}}>
+            <div>
+              <div className="stat-value" style={{color: data.inceptionCAGR > 0.15 ? C.green : C.accent}}>
+                {fmt.pct(data.inceptionCAGR)}
+              </div>
+              <div className="stat-label">Portfolio CAGR (inception)</div>
+            </div>
+            <div>
+              <div className="stat-value" style={{color:C.text_dim}}>{fmt.delta(data.ytdCAGR)}</div>
+              <div className="stat-label">YTD Return</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Accounts Summary */}
+        <div className="card">
+          <div className="card-header"><span className="card-title">US Accounts</span></div>
+          {(data.accounts || []).slice(0,4).map((a,i) => (
+            <div key={i} className="acct-row">
+              <div>
+                <div className="acct-name" style={{fontSize:13}}>{a.name}</div>
+                <div className="dim mono" style={{fontSize:10}}>{fmt.usd(a.income, true)}/yr income</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div className="mono" style={{fontSize:13,color:'var(--text)'}}>{fmt.usd(a.nlv, true)}</div>
+                <div className={`mono ${fmt.sign(a.embeddedGain)}`} style={{fontSize:10}}>
+                  {a.embeddedGain > 0 ? '+' : ''}{fmt.usd(a.embeddedGain, true)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── US PORTFOLIO SCREEN ───────────────────────────────────────────
+function PortfolioScreen() {
+  const { data, loading, error } = useData('getUSPortfolio');
+  const [search, setSearch] = useState('');
+  const [acctFilter, setAcctFilter] = useState('All');
+  const [objFilter, setObjFilter] = useState('All');
+  const [sortCol, setSortCol] = useState('mktValue');
+  const [sortDir, setSortDir] = useState(-1);
+
+  if (loading) return <LoadingCard />;
+  if (error) return <ErrorCard msg={error} />;
+  if (!data) return null;
+
+  const positions = data.positions || [];
+  const accounts = ['All', ...new Set(positions.map(p => p.account).filter(Boolean))];
+  const objectives = ['All', ...new Set(positions.map(p => p.objective).filter(Boolean))];
+
+  const filtered = positions.filter(p => {
+    if (acctFilter !== 'All' && p.account !== acctFilter) return false;
+    if (objFilter !== 'All' && p.objective !== objFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return p.symbol?.includes(q) || p.name?.toLowerCase().includes(q) || p.sector?.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => sortDir * ((a[sortCol]||0) - (b[sortCol]||0)));
+  const totalMkt = sorted.reduce((s, p) => s + (p.mktValue||0), 0);
+  const totalGain = sorted.reduce((s, p) => s + (p.gainLoss||0), 0);
+  const totalIncome = sorted.reduce((s, p) => s + (p.annualDividend||0), 0);
+
+  const toggleSort = (col) => {
+    if (sortCol === col) setSortDir(d => -d);
+    else { setSortCol(col); setSortDir(-1); }
+  };
+  const SH = ({ col, label }) => (
+    <th onClick={() => toggleSort(col)} style={{cursor:'pointer',userSelect:'none'}}>
+      {label}{sortCol===col ? (sortDir>0?' ↑':' ↓') : ''}
+    </th>
+  );
+
+  return (
+    <div className="fade-up">
+      {/* Summary Row */}
+      <div className="grid grid-3 section">
+        <KPICard label="Market Value" value={fmt.usd(totalMkt,true)} color={C.accent} />
+        <KPICard label="Unrealized G/L" value={fmt.usd(totalGain,true)}
+          delta={fmt.pct(totalGain/Math.max(1, totalMkt - totalGain))}
+          deltaClass={fmt.sign(totalGain)} color={totalGain>=0?C.green:C.red} />
+        <KPICard label="Annual Income" value={fmt.usd(totalIncome,true)} color={C.teal} />
+      </div>
+
+      {/* Filters */}
+      <div className="filter-bar">
+        <input className="filter-input" placeholder="Search symbol, name, sector…"
+          value={search} onChange={e => setSearch(e.target.value)} />
+        {accounts.map(a => (
+          <span key={a} className={`filter-pill ${acctFilter===a?'active':''}`}
+            onClick={() => setAcctFilter(a)}>{a}</span>
+        ))}
+        <select className="filter-select" value={objFilter} onChange={e => setObjFilter(e.target.value)}>
+          {objectives.map(o => <option key={o}>{o}</option>)}
+        </select>
+        <span className="dim" style={{fontSize:11,marginLeft:'auto'}}>
+          {sorted.length} of {positions.length} positions
+        </span>
+      </div>
+
+      {/* Table */}
+      <div className="card" style={{padding:0}}>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <SH col="symbol" label="Symbol" />
+                <th>Name</th>
+                <th>Account</th>
+                <th>Objective</th>
+                <SH col="cmp" label="CMP" />
+                <SH col="mktValue" label="Mkt Value" />
+                <SH col="gainLoss" label="Gain / Loss" />
+                <SH col="cagr" label="CAGR" />
+                <SH col="annualDividend" label="Div/Yr" />
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.slice(0,100).map((p, i) => (
+                <tr key={i}>
+                  <td><span className="mono accent" style={{fontWeight:500}}>{p.symbol?.toUpperCase()}</span></td>
+                  <td style={{maxWidth:140,overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</td>
+                  <td><span className="badge badge-blue">{p.account}</span></td>
+                  <td><span className="badge badge-dim">{p.objective}</span></td>
+                  <td className="mono right">{fmt.usd(p.cmp)}</td>
+                  <td className="mono right" style={{color:'var(--text)'}}>{fmt.usd(p.mktValue,true)}</td>
+                  <td className={`mono right ${fmt.sign(p.gainLoss)}`}>
+                    {fmt.usd(p.gainLoss,true)}
+                    {p.mktValue ? <span style={{fontSize:10,opacity:0.7}}> ({fmt.pct(p.gainLoss/(p.mktValue-p.gainLoss))})</span> : ''}
+                  </td>
+                  <td className={`mono right ${p.cagr>=0.15?'pos':p.cagr<0?'neg':'accent'}`}>
+                    {fmt.pct(p.cagr)}
+                  </td>
+                  <td className="mono right">{p.annualDividend > 0 ? fmt.usd(p.annualDividend,true) : <span className="dim">—</span>}</td>
+                  <td>
+                    <span className={`badge ${p.taxType==='LT'?'badge-green':'badge-gold'}`}>{p.taxType||'?'}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {sorted.length > 100 && (
+          <div style={{padding:'10px 14px',fontSize:11,color:'var(--text-dim)',borderTop:'1px solid var(--border)'}}>
+            Showing 100 of {sorted.length} positions
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── PERFORMANCE SCREEN ────────────────────────────────────────────
+function PerformanceScreen() {
+  const { data, loading, error } = useData('getPerformanceData');
+
+  if (loading) return <LoadingCard />;
+  if (error) return <ErrorCard msg={error} />;
+  if (!data) return null;
+
+  const history = (data.history || []).map(h => ({
+    ...h,
+    year: h.date ? h.date.substring(0,4) : '',
+    totalM: h.totalUSD / 1e6,
+  }));
+
+  const annualNLV = data.annualNLV || [];
+  const returns = [];
+  for (let i = 1; i < history.length; i++) {
+    const prev = history[i-1];
+    const curr = history[i];
+    if (prev.totalUSD && curr.totalUSD) {
+      returns.push({
+        year: curr.year,
+        portReturn: ((curr.totalUSD / prev.totalUSD) - 1) * 100,
+        qqqReturn: prev.qqq && curr.qqq ? ((curr.qqq / prev.qqq) - 1) * 100 : null,
+      });
+    }
+  }
+
+  // Compute starting $1M comparison
+  const startVal = history.length ? history[0].totalUSD : 1;
+  const indexed = history.map(h => ({
+    ...h,
+    portIdx: (h.totalUSD / startVal) * 100,
+    qqqIdx: h.qqq && history[0].qqq ? (h.qqq / history[0].qqq) * 100 : null,
+  }));
+
+  return (
+    <div className="fade-up">
+      {/* KPIs */}
+      <div className="grid grid-4 section">
+        <KPICard label="Portfolio CAGR (inception)" value={fmt.pct(data.portfolioCAGR)}
+          delta="Since 2011" deltaClass={data.portfolioCAGR > data.qqqCAGR ? 'pos' : 'neg'}
+          color={data.portfolioCAGR > data.qqqCAGR ? C.green : C.red} />
+        <KPICard label="QQQ CAGR (same period)" value={fmt.pct(data.qqqCAGR)}
+          delta="Benchmark" deltaClass="neu" color={C.gold} />
+        <KPICard label="Alpha vs QQQ" value={fmt.pct(data.portfolioCAGR - data.qqqCAGR)}
+          delta={data.portfolioCAGR > data.qqqCAGR ? 'Outperforming' : 'Underperforming'}
+          deltaClass={data.portfolioCAGR > data.qqqCAGR ? 'pos' : 'neg'}
+          color={data.portfolioCAGR > data.qqqCAGR ? C.green : C.red} />
+        <KPICard label="YTD Gain" value={fmt.usd(data.ytdGain, true)}
+          delta={data.ytdGain > 0 ? 'vs prior year-end' : 'Loss YTD'}
+          deltaClass={fmt.sign(data.ytdGain)} color={data.ytdGain >= 0 ? C.green : C.red} />
+      </div>
+
+      {/* Portfolio Growth Chart */}
+      <div className="card section">
+        <div className="card-header">
+          <span className="card-title">Portfolio Value — Historical</span>
+          <span className="dim" style={{fontSize:10,fontFamily:'var(--font-mono)'}}>USD Millions</span>
+        </div>
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart data={indexed} margin={{top:8, right:16, left:0, bottom:0}}>
+            <defs>
+              <linearGradient id="portGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={C.accent} stopOpacity={0.3}/>
+                <stop offset="95%" stopColor={C.accent} stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#222840" vertical={false}/>
+            <XAxis dataKey="year" tick={{fill:'#6b7490',fontSize:11}}
+              axisLine={{stroke:'#222840'}} tickLine={false}/>
+            <YAxis tickFormatter={v => '$' + (v/1e6).toFixed(1) + 'M'}
+              tick={{fill:'#6b7490',fontSize:10}} axisLine={false} tickLine={false}/>
+            <Tooltip content={({active,payload,label}) => {
+              if(!active||!payload?.length) return null;
+              return <div style={{background:'#1d2230',border:'1px solid #222840',borderRadius:6,padding:'10px 14px',fontFamily:'DM Mono,monospace',fontSize:11}}>
+                <div style={{color:'#9ba4be',marginBottom:6}}>{label}</div>
+                {payload.map((p,i) => <div key={i} style={{color:p.color,display:'flex',gap:10,justifyContent:'space-between'}}>
+                  <span>{p.name}</span><span>{fmt.usd(p.value,true)}</span>
+                </div>)}
+              </div>;
+            }}/>
+            <Area type="monotone" dataKey="totalUSD" name="Portfolio"
+              stroke={C.accent} fill="url(#portGrad)" strokeWidth={2} dot={false}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Annual Returns Bar Chart */}
+      <div className="card section">
+        <div className="card-header">
+          <span className="card-title">Annual Returns — Portfolio vs QQQ</span>
+        </div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={returns} margin={{top:8, right:16, left:0, bottom:0}} barGap={4}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#222840" vertical={false}/>
+            <XAxis dataKey="year" tick={{fill:'#6b7490',fontSize:11}} axisLine={{stroke:'#222840'}} tickLine={false}/>
+            <YAxis tickFormatter={v => v.toFixed(0) + '%'} tick={{fill:'#6b7490',fontSize:10}} axisLine={false} tickLine={false}/>
+            <Tooltip content={({active,payload,label}) => {
+              if(!active||!payload?.length) return null;
+              return <div style={{background:'#1d2230',border:'1px solid #222840',borderRadius:6,padding:'10px 14px',fontFamily:'DM Mono,monospace',fontSize:11}}>
+                <div style={{color:'#9ba4be',marginBottom:6}}>{label}</div>
+                {payload.map((p,i) => <div key={i} style={{color:p.color,display:'flex',gap:10,justifyContent:'space-between'}}>
+                  <span>{p.name}</span><span>{(p.value||0).toFixed(1)}%</span>
+                </div>)}
+              </div>;
+            }}/>
+            <Bar dataKey="portReturn" name="Portfolio" fill={C.accent} radius={[3,3,0,0]}/>
+            <Bar dataKey="qqqReturn" name="QQQ" fill={C.gold} radius={[3,3,0,0]} opacity={0.7}/>
+            <Legend wrapperStyle={{fontSize:11,color:'#9ba4be',paddingTop:10}}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Year-by-year table */}
+      <div className="card">
+        <div className="card-header"><span className="card-title">Year-by-Year Summary</span></div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Year</th><th>Portfolio (USD)</th><th>YoY Return</th>
+                <th>QQQ Price</th><th>QQQ Return</th><th>Alpha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((h, i) => {
+                const prev = i > 0 ? history[i-1] : null;
+                const ret = prev ? (h.totalUSD/prev.totalUSD - 1) : null;
+                const qRet = prev?.qqq && h.qqq ? (h.qqq/prev.qqq - 1) : null;
+                const alpha = ret != null && qRet != null ? ret - qRet : null;
+                return (
+                  <tr key={i}>
+                    <td className="mono gold">{h.year}</td>
+                    <td className="mono right" style={{color:'var(--text)'}}>{fmt.usd(h.totalUSD, true)}</td>
+                    <td className={`mono right ${ret==null?'':fmt.sign(ret)}`}>
+                      {ret != null ? fmt.pct(ret) : '—'}
+                    </td>
+                    <td className="mono right">{h.qqq ? '$' + h.qqq.toFixed(0) : '—'}</td>
+                    <td className={`mono right ${qRet==null?'':fmt.sign(qRet)}`}>
+                      {qRet != null ? fmt.pct(qRet) : '—'}
+                    </td>
+                    <td className={`mono right ${alpha==null?'':fmt.sign(alpha)}`}>
+                      {alpha != null ? fmt.pct(alpha) : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── CONFIG SCREEN ─────────────────────────────────────────────────
+function ConfigScreen({ onSave }) {
+  const [url, setUrl] = useState(localStorage.getItem('inv_gas_url') || '');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+
+  const testConn = async () => {
+    setTesting(true); setTestResult(null);
+    try {
+      const res = await fetch(url + '?action=ping');
+      const data = await res.json();
+      setTestResult({ ok: true, msg: 'Connected — ' + data.version });
+    } catch (e) {
+      setTestResult({ ok: false, msg: e.message });
+    }
+    setTesting(false);
+  };
+
+  const save = () => {
+    localStorage.setItem('inv_gas_url', url);
+    onSave && onSave();
+  };
+
+  return (
+    <div className="config-screen card fade-up">
+      <h2>Connect Spreadsheet</h2>
+      <p>Enter the deployed Google Apps Script URL for your Income Plan spreadsheet. The app will use this to read portfolio data, tax information, and performance metrics.</p>
+
+      <div className="form-group">
+        <label className="form-label">GAS Web App URL</label>
+        <input className="form-input" value={url}
+          onChange={e => setUrl(e.target.value)}
+          placeholder="https://script.google.com/macros/s/AKfy.../exec" />
+        <div className="form-hint">Deploy your GAS as a web app (anyone with link, as me) and paste the URL above.</div>
+      </div>
+
+      {testResult && (
+        <div style={{padding:'10px 14px',borderRadius:'var(--r)',marginBottom:16,
+          background: testResult.ok ? 'rgba(61,214,140,0.1)' : 'rgba(255,94,126,0.1)',
+          border: `1px solid ${testResult.ok ? C.green : C.red}`,
+          color: testResult.ok ? C.green : C.red, fontSize:12,
+          fontFamily:'var(--font-mono)'}}>
+          {testResult.ok ? '✓ ' : '✗ '}{testResult.msg}
+        </div>
+      )}
+
+      <div style={{display:'flex',gap:10}}>
+        <button className="btn" onClick={testConn} disabled={!url || testing}>
+          {testing ? 'Testing…' : 'Test Connection'}
+        </button>
+        <button className="btn primary" onClick={save} disabled={!url}>
+          Save & Connect
+        </button>
+        {localStorage.getItem('inv_gas_url') && (
+          <button className="btn" onClick={() => { localStorage.removeItem('inv_gas_url'); onSave && onSave(); }}>
+            Use Demo Data
+          </button>
+        )}
+      </div>
+
+      <div style={{marginTop:32, padding:'16px',background:'var(--bg-raised)',borderRadius:'var(--r)',border:'1px solid var(--border)'}}>
+        <div className="sub-title" style={{marginBottom:8}}>Setup Instructions</div>
+        <div style={{color:'var(--text-mid)',fontSize:12,lineHeight:1.7}}>
+          <div>1. Open the Income Plan spreadsheet in Google Drive</div>
+          <div>2. Go to <span className="mono accent">Extensions → Apps Script</span></div>
+          <div>3. Create a new file, paste the backend code from <span className="mono gold">investment-gas.js</span></div>
+          <div>4. Click <span className="mono accent">Deploy → New Deployment → Web App</span></div>
+          <div>5. Set "Execute as: Me" and "Who has access: Anyone"</div>
+          <div>6. Copy the deployment URL and paste above</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// REUSABLE COMPONENTS
+// ════════════════════════════════════════════════════════════════
+
+function KPICard({ label, value, delta, deltaClass, color }) {
+  return (
+    <div className="card card-sm">
+      <div className="stat-label" style={{marginBottom:6}}>{label}</div>
+      <div className="stat-value" style={{color: color || 'var(--text)'}}>{value}</div>
+      {delta && <div className={`stat-delta ${deltaClass}`}>{delta}</div>}
+    </div>
+  );
+}
+
+function IncomeRow({ label, value, color }) {
+  return (
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <div style={{width:6,height:6,borderRadius:'50%',background:color}}/>
+        <span style={{fontSize:12,color:'var(--text-mid)'}}>{label}</span>
+      </div>
+      <span className="mono" style={{fontSize:12,color:'var(--text)'}}>{fmt.usd(value, true)}</span>
+    </div>
+  );
+}
+
+function AllocationChart({ data }) {
+  const colors = [C.accent, C.gold, C.teal, C.accent2];
+  return (
+    <div className="donut-wrap">
+      <ResponsiveContainer width={160} height={160}>
+        <PieChart>
+          <Pie data={data} cx="50%" cy="50%" innerRadius={45} outerRadius={70}
+            paddingAngle={3} dataKey="value" startAngle={90} endAngle={-270}>
+            {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} stroke="none"/>)}
+          </Pie>
+          <Tooltip formatter={(v) => fmt.usd(v, true)} contentStyle={{
+            background:'#1d2230', border:'1px solid #222840', borderRadius:6,
+            fontFamily:"'DM Mono',monospace", fontSize:11
+          }}/>
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="donut-legend">
+        {data.map((d, i) => (
+          <div key={i} className="donut-legend-item">
+            <div className="donut-dot" style={{background: colors[i % colors.length]}}/>
+            <div>
+              <div style={{fontSize:12,color:'var(--text)'}}>{d.label}</div>
+              <div style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--text-dim)'}}>
+                {fmt.usd(d.value,true)} · {fmt.pct(d.pct)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LoadingCard() {
+  return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:200,gap:12,color:'var(--text-dim)'}}>
+      <div className="spinner"/>
+      <span style={{fontFamily:'var(--font-mono)',fontSize:12}}>Loading data…</span>
+    </div>
+  );
+}
+
+function ErrorCard({ msg }) {
+  return (
+    <div className="card" style={{borderColor:'var(--red)',padding:'20px'}}>
+      <div style={{color:'var(--red)',fontFamily:'var(--font-mono)',fontSize:12}}>
+        ✗ Error: {msg}
+      </div>
+      <div style={{color:'var(--text-dim)',fontSize:11,marginTop:6}}>
+        Check your GAS URL in Settings, or use demo data.
+      </div>
+    </div>
+  );
+}
+
+function DemoBanner() {
+  return (
+    <div style={{background:'rgba(240,192,96,0.08)',border:'1px solid rgba(240,192,96,0.25)',
+      borderRadius:'var(--r)',padding:'8px 14px',marginBottom:20,
+      display:'flex',alignItems:'center',gap:10,fontSize:11}}>
+      <span style={{color:'var(--gold)'}}>◆</span>
+      <span style={{color:'var(--text-dim)'}}>Demo mode — showing sample data. Connect your spreadsheet in <span style={{color:'var(--gold)'}}>Settings</span> to see live data.</span>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// MAIN APP
+// ════════════════════════════════════════════════════════════════
+
+const SCREENS = [
+  { id: 'dashboard',   label: 'Dashboard',   icon: 'dashboard',   section: 'Overview' },
+  { id: 'portfolio',   label: 'US Portfolio', icon: 'portfolio',   section: 'Holdings' },
+  { id: 'india',       label: 'India Portfolio', icon: 'india',    section: 'Holdings' },
+  { id: 'performance', label: 'Performance',  icon: 'performance', section: 'Analytics' },
+  { id: 'tax',         label: 'Tax Planning', icon: 'tax',         section: 'Analytics' },
+  { id: 'harvest',     label: 'Tax Harvest',  icon: 'harvest',     section: 'Analytics' },
+  { id: 'settings',    label: 'Settings',     icon: 'settings',    section: 'System' },
+];
+
+function IndiaPortfolioScreen() {
+  const { data, loading, error } = useData('getIndiaPortfolio');
+  if (loading) return <LoadingCard />;
+  if (error) return <ErrorCard msg={error} />;
+  if (!data) return null;
+  const positions = data.positions || [];
+  const totalINR = positions.reduce((s,p) => s + (p.mktValueINR||0), 0);
+  const totalGain = positions.reduce((s,p) => s + (p.gainLossINR||0), 0);
+
+  return (
+    <div className="fade-up">
+      <div className="grid grid-3 section">
+        <KPICard label="India Holdings (INR)" value={fmt.inr(totalINR, true)} color={C.gold} />
+        <KPICard label="India Holdings (USD)" value={fmt.usd(totalINR/(data.usdRate||86), true)} color={C.accent} />
+        <KPICard label="Unrealized Gain (INR)" value={fmt.inr(totalGain, true)}
+          deltaClass={fmt.sign(totalGain)} delta={fmt.pct(totalGain/Math.max(1,totalINR-totalGain))}
+          color={totalGain>=0?C.green:C.red} />
+      </div>
+      <div className="card" style={{padding:0}}>
+        <div className="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Symbol</th><th>Name</th><th>Account</th>
+              <th className="right">CMP</th><th className="right">Mkt Val (INR)</th>
+              <th className="right">G/L (INR)</th><th className="right">CAGR</th>
+              <th>Type</th>
+            </tr></thead>
+            <tbody>
+              {positions.map((p,i) => (
+                <tr key={i}>
+                  <td><span className="mono accent" style={{fontWeight:500}}>{String(p.symbol).toUpperCase()}</span></td>
+                  <td style={{maxWidth:150,overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</td>
+                  <td><span className="badge badge-gold">{p.account}</span></td>
+                  <td className="mono right">{p.cmp ? '₹'+Math.round(p.cmp).toLocaleString('en-IN') : '—'}</td>
+                  <td className="mono right" style={{color:'var(--text)'}}>{fmt.inr(p.mktValueINR, true)}</td>
+                  <td className={`mono right ${fmt.sign(p.gainLossINR)}`}>{fmt.inr(p.gainLossINR, true)}</td>
+                  <td className={`mono right ${p.cagr>=0.12?'pos':p.cagr<0?'neg':'accent'}`}>{fmt.pct(p.cagr)}</td>
+                  <td><span className={`badge ${p.taxType==='LT'?'badge-green':'badge-gold'}`}>{p.taxType||'?'}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaxPlanningScreen() {
+  const yr = new Date().getFullYear();
+  const { data, loading, error } = useData('getTaxData', { year: yr });
+  if (loading) return <LoadingCard />;
+  if (error) return <ErrorCard msg={error} />;
+  if (!data) return null;
+
+  const entities = ['Sakina', 'Aliza', 'Etrade', 'Chhaya', 'Trust'];
+
+  return (
+    <div className="fade-up">
+      <div style={{marginBottom:20}}>
+        <div className="section-title">Tax Planning {yr}</div>
+      </div>
+      <div className="grid grid-2 section">
+        {/* Realized Gains */}
+        <div className="card">
+          <div className="card-header"><span className="card-title">Realized Gains / Losses</span></div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Entity</th><th className="right">ST (Incl Carry)</th><th className="right">LT (Incl Carry)</th></tr></thead>
+              <tbody>
+                {entities.map((e,i) => {
+                  const r = data.realizedByEntity?.[e];
+                  return <tr key={i}>
+                    <td style={{color:'var(--text)'}}>{e}</td>
+                    <td className={`mono right ${r?.stRealizedInclCarry>=0?'pos':'neg'}`}>
+                      {r ? fmt.usd(r.stRealizedInclCarry, true) : '—'}
+                    </td>
+                    <td className={`mono right ${r?.ltRealizedInclCarry>=0?'pos':'neg'}`}>
+                      {r ? fmt.usd(r.ltRealizedInclCarry, true) : '—'}
+                    </td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {/* Carry-Ins */}
+        <div className="card">
+          <div className="card-header"><span className="card-title">Loss Carry-Ins from {yr-1}</span></div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Entity</th><th className="right">ST Loss</th><th className="right">LT Loss</th><th className="right">Inv Exp</th></tr></thead>
+              <tbody>
+                {entities.map((e,i) => {
+                  const c = data.carryInByEntity?.[e];
+                  return <tr key={i}>
+                    <td style={{color:'var(--text)'}}>{e}</td>
+                    <td className={`mono right ${c?.stLossCarryIn<0?'neg':'dim'}`}>
+                      {c ? fmt.usd(c.stLossCarryIn, true) : '—'}
+                    </td>
+                    <td className={`mono right ${c?.ltLossCarryIn<0?'neg':'dim'}`}>
+                      {c ? fmt.usd(c.ltLossCarryIn, true) : '—'}
+                    </td>
+                    <td className="mono right dim">{c ? fmt.usd(c.investmentExpense, true) : '—'}</td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Income by Entity */}
+      <div className="card section">
+        <div className="card-header"><span className="card-title">Income Summary by Entity — {yr}</span></div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Entity</th>
+                <th className="right">NQ Div</th>
+                <th className="right">Q Div</th>
+                <th className="right">ST G/L</th>
+                <th className="right">LT G/L</th>
+                <th className="right">Margin Int</th>
+                <th className="right">Std Deduction</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entities.map((e,i) => {
+                const inc = data.incomeByEntity?.[e];
+                return <tr key={i}>
+                  <td style={{color:'var(--text)'}}>{e}</td>
+                  <td className="mono right">{inc ? fmt.usd(inc.nqDiv, true) : '—'}</td>
+                  <td className="mono right accent">{inc ? fmt.usd(inc.qDiv, true) : '—'}</td>
+                  <td className={`mono right ${inc?.stGainLoss>=0?'pos':'neg'}`}>{inc ? fmt.usd(inc.stGainLoss, true) : '—'}</td>
+                  <td className={`mono right ${inc?.ltGainLoss>=0?'pos':'neg'}`}>{inc ? fmt.usd(inc.ltGainLoss, true) : '—'}</td>
+                  <td className="mono right neg">{inc ? fmt.usd(inc.marginInterest, true) : '—'}</td>
+                  <td className="mono right dim">{inc ? fmt.usd(inc.standardDeduction, true) : '—'}</td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HarvestScreen() {
+  const { data: portData, loading } = useData('getUSPortfolio');
+  if (loading) return <LoadingCard />;
+  const positions = portData?.positions || [];
+  const losers = positions.filter(p => p.gainLoss < 0 && p.mktValue > 0)
+    .sort((a,b) => a.gainLoss - b.gainLoss);
+  const totalLoss = losers.reduce((s,p) => s + p.gainLoss, 0);
+  const potentialSavings = Math.abs(totalLoss) * 0.20;
+
+  return (
+    <div className="fade-up">
+      <div className="grid grid-3 section">
+        <KPICard label="Positions with Losses" value={losers.length} color={C.red} />
+        <KPICard label="Total Harvestable Loss" value={fmt.usd(totalLoss, true)}
+          delta="Available to offset gains" deltaClass="neg" color={C.red} />
+        <KPICard label="Potential Tax Savings (20%)" value={fmt.usd(potentialSavings, true)}
+          delta="At LTCG rate" deltaClass="pos" color={C.green} />
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">Loss Harvest Candidates</span>
+          <span className="dim" style={{fontSize:10}}>Sorted by largest loss. Watch wash-sale rules (30-day window).</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Symbol</th><th>Name</th><th>Account</th>
+              <th className="right">Mkt Value</th><th className="right">Gain / Loss</th>
+              <th className="right">Loss %</th><th className="right">CAGR</th>
+              <th>Hold</th><th>Tax</th>
+            </tr></thead>
+            <tbody>
+              {losers.map((p,i) => (
+                <tr key={i}>
+                  <td><span className="mono accent">{p.symbol?.toUpperCase()}</span></td>
+                  <td style={{maxWidth:130,overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</td>
+                  <td><span className="badge badge-blue">{p.account}</span></td>
+                  <td className="mono right">{fmt.usd(p.mktValue,true)}</td>
+                  <td className="mono right neg">{fmt.usd(p.gainLoss,true)}</td>
+                  <td className="mono right neg">{fmt.pct(p.gainLoss/(p.mktValue-p.gainLoss))}</td>
+                  <td className={`mono right ${p.cagr<-0.1?'neg':'dim'}`}>{fmt.pct(p.cagr)}</td>
+                  <td className="mono dim">{p.holdingPeriodDays} days</td>
+                  <td><span className={`badge ${p.taxType==='LT'?'badge-green':'badge-gold'}`}>{p.taxType||'?'}</span></td>
+                </tr>
+              ))}
+              {losers.length === 0 && (
+                <tr><td colSpan={9} className="dim center" style={{padding:'24px'}}>No positions with unrealized losses</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [screen, setScreen] = useState('dashboard');
+  const [_, forceUpdate] = useState(0);
+  const hasUrl = !!localStorage.getItem('inv_gas_url');
+  const isDemo = !hasUrl;
+
+  const sections = [...new Set(SCREENS.map(s => s.section))];
+
+  const renderScreen = () => {
+    switch (screen) {
+      case 'dashboard':   return <DashboardScreen />;
+      case 'portfolio':   return <PortfolioScreen />;
+      case 'india':       return <IndiaPortfolioScreen />;
+      case 'performance': return <PerformanceScreen />;
+      case 'tax':         return <TaxPlanningScreen />;
+      case 'harvest':     return <HarvestScreen />;
+      case 'settings':    return <ConfigScreen onSave={() => { setScreen('dashboard'); forceUpdate(n=>n+1); }} />;
+      default:            return <DashboardScreen />;
+    }
+  };
+
+  const currentScreen = SCREENS.find(s => s.id === screen);
+
+  return (
+    <div className="app">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <h1>Investment Desk</h1>
+          <div className="version">{VERSION} {isDemo ? '· demo' : '· live'}</div>
+        </div>
+
+        <nav className="nav">
+          {sections.map(sec => (
+            <div key={sec}>
+              <div className="nav-section-label">{sec}</div>
+              {SCREENS.filter(s => s.section === sec).map(s => (
+                <div key={s.id}
+                  className={`nav-item ${screen === s.id ? 'active' : ''}`}
+                  onClick={() => setScreen(s.id)}>
+                  <Icon name={s.icon} size={15} />
+                  <span>{s.label}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="usd-rate">
+            USD/INR <span id="usdrate">₹{isDemo ? '86.5' : '—'}</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main className="main">
+        <div className="topbar">
+          <h2>{currentScreen?.label || 'Investment Desk'}</h2>
+          <div className="topbar-meta">
+            {isDemo && <span className="badge badge-gold" style={{fontSize:10}}>DEMO</span>}
+            <span className="topbar-ts">{new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}</span>
+          </div>
+        </div>
+        <div className="content">
+          {renderScreen()}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
